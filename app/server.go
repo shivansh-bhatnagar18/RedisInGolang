@@ -29,6 +29,7 @@ func main() {
 
 func handleconn(conn net.Conn) {
 	reader := bufio.NewReader(conn)
+	c := NewCache()
 	for {
 		response, err := parseRESP(reader)
 		if err != nil {
@@ -40,7 +41,7 @@ func handleconn(conn net.Conn) {
 			command = append(command, Value{typ: "bulk", str: v})
 		}
 		comm := Handlers[command[0].str]
-		resp := comm(command[1:])
+		resp := comm(c, command[1:])
 		writeResponse(conn, resp)	
 	}	
 }
@@ -74,7 +75,7 @@ func parseRESP(reader *bufio.Reader) ([]string, error) {
 	}
 	if line[0] != '*' {
 		fmt.Println("Invalid RESP format")
-		return nil, fmt.Errorf("Invalid RESP format")
+		return nil, fmt.Errorf("invalid RESP format")
 	}
 
 	// Convert the array length from string to integer
@@ -97,7 +98,7 @@ func parseRESP(reader *bufio.Reader) ([]string, error) {
 		}
 		if line[0] != '$' {
 			fmt.Println("Invalid RESP format")
-			return nil, fmt.Errorf("Invalid RESP format")
+			return nil, fmt.Errorf("invalid RESP format")
 		}
 
 		// Convert the bulk string length from string to integer

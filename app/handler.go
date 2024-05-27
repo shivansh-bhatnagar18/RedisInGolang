@@ -1,15 +1,19 @@
 package main
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+	"time"
+)
 
-var Handlers = map[string]func([]Value) Value{
-	"GET":     get,
-	"SET":     set,
-	"PING":    ping,
-	"ECHO":    echo,
-	"HGET":    hget,
-	"HSET":    hset,
-	"HGETALL": hgetall,
+var Handlers = map[string]func(*Cache, []Value) Value{
+	"GET":     (*Cache).get,
+	"SET":     (*Cache).set,
+	"PING":    (*Cache).ping,
+	"ECHO":    (*Cache).echo,
+	"HGET":    (*Cache).hget,
+	"HSET":    (*Cache).hset,
+	"HGETALL": (*Cache).hgetall,
 }
 
 type Value struct {
@@ -20,7 +24,22 @@ type Value struct {
 	arr  []Value
 }
 
-func ping(args []Value) Value {
+type Item struct {
+	value      string
+	expiryTime *time.Timer
+}
+type Cache struct {
+	items map[string]*Item
+	mu    sync.RWMutex
+}
+
+func NewCache() *Cache {
+	return &Cache{
+		items: make(map[string]*Item),
+	}
+}
+
+func (c *Cache) ping(args []Value) Value {
 	if len(args) == 0 {
 		return Value{typ: "string", str: "PONG"}
 	}
@@ -30,36 +49,69 @@ func ping(args []Value) Value {
 var SETs = map[string]string{}
 var SERsMu = sync.RWMutex{}
 
-func set(args []Value) Value {
-	if len(args) != 2 {
-		return Value{typ: "error", err: "wrong number of arguments"}
-	}
+func (c *Cache) set(args []Value) Value {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	key := args[0].str
 	val := args[1].str
-	SERsMu.Lock()
-	SETs[key] = val
-	SERsMu.Unlock()
+	if len(args) > 3 {
+		dur, err := time.ParseDuration(args[3].str + "ms")
+		if err != nil {
+			return Value{typ: "error", err: err.Error()}
+		}
+		// Set the expiry time
+		t := time.AfterFunc(dur, func() {
+			fmt.Println("Deleting key", key)
+			c.Delete(key)
+		})
+		c.items[key] = &Item{
+			value:      val,
+			expiryTime: t,
+		}
+	} else {
+		// Set the expiry time to infinity
+		dur, err := time.ParseDuration("100000ms")
+		if err != nil {
+			return Value{typ: "error", err: err.Error()}
+		}
+		t := time.AfterFunc(dur, func() {
+			fmt.Println("Deleting key", key)
+			c.Delete(key)
+		})
+		c.items[key] = &Item{
+			value:      val,
+			expiryTime: t,
+		}
+	}
+	fmt.Println("c.items", c.items)
+
 	return Value{typ: "string", str: "OK"}
+
 }
 
-func get(args []Value) Value {
-	if len(args) != 1 {
-		return Value{typ: "error", err: "wrong number of arguments"}
-	}
+func (c *Cache) get(args []Value) Value {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	key := args[0].str
-	SERsMu.RLock()
-	val, ok := SETs[key]
-	SERsMu.RUnlock()
-	if !ok {
+	item, found := c.items[key]
+	if !found || !item.expiryTime.Stop() {
+		// if !found {
 		return Value{typ: "nil"}
 	}
-	return Value{typ: "bulk", str: val}
+	// item.expiryTime.Reset(time.Minute * 5)
+	return Value{typ: "bulk", str: item.value}
+}
+
+func (c *Cache) Delete(args string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.items, args)
 }
 
 var HSETs = map[string]map[string]string{}
 var HSETsMu = sync.RWMutex{}
 
-func hset(args []Value) Value {
+func (c *Cache) hset(args []Value) Value {
 	if len(args) != 3 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -75,7 +127,7 @@ func hset(args []Value) Value {
 	return Value{typ: "string", str: "OK"}
 }
 
-func hget(args []Value) Value {
+func (c *Cache) hget(args []Value) Value {
 	if len(args) != 2 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -90,7 +142,7 @@ func hget(args []Value) Value {
 	return Value{typ: "bulk", str: val}
 }
 
-func hgetall(args []Value) Value {
+func (c *Cache) hgetall(args []Value) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -109,7 +161,7 @@ func hgetall(args []Value) Value {
 	return Value{typ: "array", arr: values}
 }
 
-func echo(args []Value) Value {
+func (c *Cache) echo(args []Value) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
