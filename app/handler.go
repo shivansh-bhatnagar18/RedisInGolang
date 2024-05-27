@@ -34,8 +34,8 @@ func set(args []Value) Value {
 	if len(args) != 2 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
-	key := args[0].bulk
-	val := args[1].bulk
+	key := args[0].str
+	val := args[1].str
 	SERsMu.Lock()
 	SETs[key] = val
 	SERsMu.Unlock()
@@ -46,7 +46,7 @@ func get(args []Value) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
-	key := args[0].bulk
+	key := args[0].str
 	SERsMu.RLock()
 	val, ok := SETs[key]
 	SERsMu.RUnlock()
