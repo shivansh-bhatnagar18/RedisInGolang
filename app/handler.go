@@ -59,7 +59,8 @@ func (c *Cache) psync(args []Value, isMaster bool) Value {
 }
 
 func (c *Cache) replconf(args []Value, isMaster bool) Value {
-	if len(args) != 2 {
+	fmt.Println("args", args)
+	if len(args) % 2 != 0 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
 	return Value{typ: "string", str: "OK"}
