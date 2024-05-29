@@ -16,6 +16,7 @@ var Handlers = map[string]func(*Cache, []Value, bool) Value{
 	"HGETALL": (*Cache).hgetall,
 	"INFO":    (*Cache).info,
 	"REPLCONF": (*Cache).replconf,
+	"PSYNC":   (*Cache).psync,
 }
 
 type Value struct {
@@ -42,6 +43,21 @@ func NewCache() *Cache {
 	}
 }
 
+var Info = map[string]string{
+	"role": "master",
+	"master_replid": "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
+	"master_repl_offset": "0",
+}
+
+func (c *Cache) psync(args []Value, isMaster bool) Value {
+	if len(args) != 2 {
+		return Value{typ: "error", err: "wrong number of arguments"}
+	}
+	Info["master_replid"] = args[0].str
+	Info["master_repl_offset"] = args[1].str
+	return Value{typ: "string", str: "OK"}
+}
+
 func (c *Cache) replconf(args []Value, isMaster bool) Value {
 	if len(args) != 2 {
 		return Value{typ: "error", err: "wrong number of arguments"}
@@ -53,16 +69,12 @@ func (c *Cache) info(args []Value, isMaster bool) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
-	var Info = map[string]string{
-		"role": "master",
-		"master_replid": "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
-		"master_repl_offset": "0",
-	}
 	if isMaster {
-		return Value{typ: "map", maps: Info}
+		Info["role"] = "master"
 	} else {
-		return Value{typ: "string", str: "role:slave"}
+		Info["role"] = "slave"
 	}
+	return Value{typ: "map", maps: Info}
 }
 
 func (c *Cache) ping(args []Value, isMaster bool) Value {
