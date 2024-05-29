@@ -45,6 +45,11 @@ func handleconn(conn net.Conn) {
 		for _, v := range response {
 			command = append(command, Value{typ: "bulk", str: v})
 		}
+		// if len(command) == 4 && command[0].str == "-p" {
+		// 	comm := Handlers[command[2].str]
+		// 	resp := comm(c, command[3:])
+		// 	writeResponse(conn, resp)
+		// }
 		comm := Handlers[command[0].str]
 		resp := comm(c, command[1:])
 		writeResponse(conn, resp)	

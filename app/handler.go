@@ -14,6 +14,7 @@ var Handlers = map[string]func(*Cache, []Value) Value{
 	"HGET":    (*Cache).hget,
 	"HSET":    (*Cache).hset,
 	"HGETALL": (*Cache).hgetall,
+	"INFO":    (*Cache).info,
 }
 
 type Value struct {
@@ -37,6 +38,13 @@ func NewCache() *Cache {
 	return &Cache{
 		items: make(map[string]*Item),
 	}
+}
+
+func (c *Cache) info(args []Value) Value {
+	if len(args) != 1 {
+		return Value{typ: "error", err: "wrong number of arguments"}
+	}
+	return Value{typ: "string", str: "role:master"}
 }
 
 func (c *Cache) ping(args []Value) Value {
