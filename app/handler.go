@@ -55,7 +55,7 @@ func (c *Cache) psync(args []Value, isMaster bool) Value {
 	}
 	Info["master_replid"] = args[0].str
 	Info["master_repl_offset"] = args[1].str
-	return Value{typ: "string", str: "OK"}
+	return Value{typ: "string", str: "+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n"}
 }
 
 func (c *Cache) replconf(args []Value, isMaster bool) Value {
