@@ -23,6 +23,7 @@ type Value struct {
 	bulk string
 	err  string
 	arr  []Value
+	maps map[string]string
 }
 
 type Item struct {
@@ -44,8 +45,13 @@ func (c *Cache) info(args []Value, isMaster bool) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
+	var Info = map[string]string{
+		"role": "master",
+		"master_replid": "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
+		"master_repl_offset": "0",
+	}
 	if isMaster {
-		return Value{typ: "string", str: "role:master"}
+		return Value{typ: "map", maps: Info}
 	} else {
 		return Value{typ: "string", str: "role:slave"}
 	}

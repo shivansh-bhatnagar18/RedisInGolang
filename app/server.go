@@ -68,6 +68,12 @@ func writeResponse(conn net.Conn, response Value) {
 		for _, v := range response.arr {
 			writeResponse(conn, v)
 		}
+	case "map":
+		str := ""
+		for k, v := range response.maps {
+			str += k + ":" + v + "\n"
+		}
+		writeResponse(conn, Value{typ: "string", str: str})
 	default:
 		conn.Write([]byte("-ERR unknown response type\r\n"))
 	}
