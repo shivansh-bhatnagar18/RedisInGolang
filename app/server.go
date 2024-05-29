@@ -8,10 +8,15 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func sendHandshake(conn net.Conn) {
 	conn.Write([]byte("*1\r\n$4\r\nPING\r\n"))
+	time.Sleep(1 * time.Second)
+	conn.Write([]byte("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n6380\r\n"))
+	time.Sleep(1 * time.Second)
+	conn.Write([]byte("*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n"))
 }
 
 func main() {
@@ -24,7 +29,7 @@ func main() {
 	if *master != "" {
 		fmt.Println("Replicating from", *master)
 		words := strings.Split(*master, " ")
-		con, err := net.Dial("tcp", words[0] + ":" + words[1])
+		con, err := net.Dial("tcp", words[0]+":"+words[1])
 		if err != nil {
 			fmt.Println("Failed to connect to master")
 		}
@@ -63,8 +68,8 @@ func handleconn(conn net.Conn, isMaster bool) {
 		}
 		comm := Handlers[command[0].str]
 		resp := comm(c, command[1:], isMaster)
-		writeResponse(conn, resp)	
-	}	
+		writeResponse(conn, resp)
+	}
 }
 
 func writeResponse(conn net.Conn, response Value) {

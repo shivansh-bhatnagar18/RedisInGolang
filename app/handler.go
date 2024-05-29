@@ -15,6 +15,7 @@ var Handlers = map[string]func(*Cache, []Value, bool) Value{
 	"HSET":    (*Cache).hset,
 	"HGETALL": (*Cache).hgetall,
 	"INFO":    (*Cache).info,
+	"REPLCONF": (*Cache).replconf,
 }
 
 type Value struct {
@@ -39,6 +40,13 @@ func NewCache() *Cache {
 	return &Cache{
 		items: make(map[string]*Item),
 	}
+}
+
+func (c *Cache) replconf(args []Value, isMaster bool) Value {
+	if len(args) != 2 {
+		return Value{typ: "error", err: "wrong number of arguments"}
+	}
+	return Value{typ: "string", str: "OK"}
 }
 
 func (c *Cache) info(args []Value, isMaster bool) Value {
