@@ -10,12 +10,26 @@ import (
 	"strings"
 )
 
+func sendHandshake(conn net.Conn) {
+	conn.Write([]byte("*1\r\n$4\r\nPING\r\n"))
+}
+
 func main() {
 	port := flag.Int("port", 6379, "Port to bind to")
 	master := flag.String("replicaof", "", "Host of the master")
 	flag.Parse()
 
 	fmt.Println("Logs from your program will appear here!")
+
+	if *master != "" {
+		fmt.Println("Replicating from", *master)
+		words := strings.Split(*master, " ")
+		con, err := net.Dial("tcp", words[0] + ":" + words[1])
+		if err != nil {
+			fmt.Println("Failed to connect to master")
+		}
+		sendHandshake(con)
+	}
 
 	hostName := net.JoinHostPort("0.0.0.0", strconv.Itoa(*port))
 	isMaster := *master == ""
