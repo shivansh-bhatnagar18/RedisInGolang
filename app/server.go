@@ -12,11 +12,13 @@ import (
 
 func main() {
 	port := flag.Int("port", 6379, "Port to bind to")
+	master := flag.String("replicaof", "", "Host of the master")
 	flag.Parse()
 
 	fmt.Println("Logs from your program will appear here!")
 
 	hostName := net.JoinHostPort("0.0.0.0", strconv.Itoa(*port))
+	isMaster := *master == ""
 	l, err := net.Listen("tcp", hostName)
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
@@ -28,11 +30,11 @@ func main() {
 			fmt.Println("Error accepting connection")
 			os.Exit(1)
 		}
-		go handleconn(conn)
+		go handleconn(conn, isMaster)
 	}
 }
 
-func handleconn(conn net.Conn) {
+func handleconn(conn net.Conn, isMaster bool) {
 	reader := bufio.NewReader(conn)
 	c := NewCache()
 	for {
@@ -45,13 +47,8 @@ func handleconn(conn net.Conn) {
 		for _, v := range response {
 			command = append(command, Value{typ: "bulk", str: v})
 		}
-		// if len(command) == 4 && command[0].str == "-p" {
-		// 	comm := Handlers[command[2].str]
-		// 	resp := comm(c, command[3:])
-		// 	writeResponse(conn, resp)
-		// }
 		comm := Handlers[command[0].str]
-		resp := comm(c, command[1:])
+		resp := comm(c, command[1:], isMaster)
 		writeResponse(conn, resp)	
 	}	
 }

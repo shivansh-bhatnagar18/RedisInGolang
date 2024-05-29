@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-var Handlers = map[string]func(*Cache, []Value) Value{
+var Handlers = map[string]func(*Cache, []Value, bool) Value{
 	"GET":     (*Cache).get,
 	"SET":     (*Cache).set,
 	"PING":    (*Cache).ping,
@@ -40,14 +40,18 @@ func NewCache() *Cache {
 	}
 }
 
-func (c *Cache) info(args []Value) Value {
+func (c *Cache) info(args []Value, isMaster bool) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
-	return Value{typ: "string", str: "role:master"}
+	if isMaster {
+		return Value{typ: "string", str: "role:master"}
+	} else {
+		return Value{typ: "string", str: "role:slave"}
+	}
 }
 
-func (c *Cache) ping(args []Value) Value {
+func (c *Cache) ping(args []Value, isMaster bool) Value {
 	if len(args) == 0 {
 		return Value{typ: "string", str: "PONG"}
 	}
@@ -57,7 +61,7 @@ func (c *Cache) ping(args []Value) Value {
 var SETs = map[string]string{}
 var SERsMu = sync.RWMutex{}
 
-func (c *Cache) set(args []Value) Value {
+func (c *Cache) set(args []Value, isMaster bool) Value {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	key := args[0].str
@@ -97,7 +101,7 @@ func (c *Cache) set(args []Value) Value {
 
 }
 
-func (c *Cache) get(args []Value) Value {
+func (c *Cache) get(args []Value, isMaster bool) Value {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	key := args[0].str
@@ -119,7 +123,7 @@ func (c *Cache) Delete(args string) {
 var HSETs = map[string]map[string]string{}
 var HSETsMu = sync.RWMutex{}
 
-func (c *Cache) hset(args []Value) Value {
+func (c *Cache) hset(args []Value, isMaster bool) Value {
 	if len(args) != 3 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -135,7 +139,7 @@ func (c *Cache) hset(args []Value) Value {
 	return Value{typ: "string", str: "OK"}
 }
 
-func (c *Cache) hget(args []Value) Value {
+func (c *Cache) hget(args []Value, isMaster bool) Value {
 	if len(args) != 2 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -150,7 +154,7 @@ func (c *Cache) hget(args []Value) Value {
 	return Value{typ: "bulk", str: val}
 }
 
-func (c *Cache) hgetall(args []Value) Value {
+func (c *Cache) hgetall(args []Value, isMaster bool) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -169,7 +173,7 @@ func (c *Cache) hgetall(args []Value) Value {
 	return Value{typ: "array", arr: values}
 }
 
-func (c *Cache) echo(args []Value) Value {
+func (c *Cache) echo(args []Value, isMaster bool) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
