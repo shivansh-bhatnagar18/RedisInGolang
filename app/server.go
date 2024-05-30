@@ -89,6 +89,12 @@ func writeResponse(conn net.Conn, response Value) {
 		for _, v := range response.arr {
 			writeResponse(conn, v)
 		}
+	case "multival":
+		for _, v := range response.multival {
+			writeResponse(conn, v)
+		}
+	case "file":
+		conn.Write([]byte("$" + fmt.Sprint(len(response.file)) + "\r\n" + response.file))
 	case "map":
 		str := ""
 		for k, v := range response.maps {

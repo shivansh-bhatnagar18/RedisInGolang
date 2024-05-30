@@ -1,31 +1,34 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
 )
 
 var Handlers = map[string]func(*Cache, []Value, bool) Value{
-	"GET":     (*Cache).get,
-	"SET":     (*Cache).set,
-	"PING":    (*Cache).ping,
-	"ECHO":    (*Cache).echo,
-	"HGET":    (*Cache).hget,
-	"HSET":    (*Cache).hset,
-	"HGETALL": (*Cache).hgetall,
-	"INFO":    (*Cache).info,
+	"GET":      (*Cache).get,
+	"SET":      (*Cache).set,
+	"PING":     (*Cache).ping,
+	"ECHO":     (*Cache).echo,
+	"HGET":     (*Cache).hget,
+	"HSET":     (*Cache).hset,
+	"HGETALL":  (*Cache).hgetall,
+	"INFO":     (*Cache).info,
 	"REPLCONF": (*Cache).replconf,
-	"PSYNC":   (*Cache).psync,
+	"PSYNC":    (*Cache).psync,
 }
 
 type Value struct {
-	typ  string
-	str  string
-	bulk string
-	err  string
-	arr  []Value
-	maps map[string]string
+	typ      string
+	str      string
+	bulk     string
+	err      string
+	arr      []Value
+	maps     map[string]string
+	multival []Value
+	file     string
 }
 
 type Item struct {
@@ -44,8 +47,8 @@ func NewCache() *Cache {
 }
 
 var Info = map[string]string{
-	"role": "master",
-	"master_replid": "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
+	"role":               "master",
+	"master_replid":      "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
 	"master_repl_offset": "0",
 }
 
@@ -55,12 +58,19 @@ func (c *Cache) psync(args []Value, isMaster bool) Value {
 	}
 	Info["master_replid"] = args[0].str
 	Info["master_repl_offset"] = args[1].str
-	return Value{typ: "string", str: "+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n"}
+	resp := make([]Value, 2)
+	resp[0] = Value{typ: "string", str: "FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0"}
+	emptyRDB := "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2"
+	d, _ := hex.DecodeString(emptyRDB)
+	resp[1] = Value{typ: "file", file: string(d)}
+	return Value{typ: "multival", multival: resp}
+	// return Value{typ: "multistring", multistring: resp}
+	// return Value{typ: "string", str: "+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n"}
 }
 
 func (c *Cache) replconf(args []Value, isMaster bool) Value {
 	fmt.Println("args", args)
-	if len(args) % 2 != 0 {
+	if len(args)%2 != 0 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
 	return Value{typ: "string", str: "OK"}
