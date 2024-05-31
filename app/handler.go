@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 )
 
-var Handlers = map[string]func(*Cache, []Value, bool) Value{
+var Handlers = map[string]func(*Cache, []Value, bool, *net.Conn) Value{
 	"GET":      (*Cache).get,
 	"SET":      (*Cache).set,
 	"PING":     (*Cache).ping,
@@ -52,10 +53,13 @@ var Info = map[string]string{
 	"master_repl_offset": "0",
 }
 
-func (c *Cache) psync(args []Value, isMaster bool) Value {
+var replicas []*net.Conn
+
+func (c *Cache) psync(args []Value, isMaster bool, conn *net.Conn) Value {
 	if len(args) != 2 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
+	replicas = append(replicas, conn)
 	Info["master_replid"] = args[0].str
 	Info["master_repl_offset"] = args[1].str
 	resp := make([]Value, 2)
@@ -68,7 +72,7 @@ func (c *Cache) psync(args []Value, isMaster bool) Value {
 	// return Value{typ: "string", str: "+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n"}
 }
 
-func (c *Cache) replconf(args []Value, isMaster bool) Value {
+func (c *Cache) replconf(args []Value, isMaster bool, conn *net.Conn) Value {
 	fmt.Println("args", args)
 	if len(args)%2 != 0 {
 		return Value{typ: "error", err: "wrong number of arguments"}
@@ -76,7 +80,7 @@ func (c *Cache) replconf(args []Value, isMaster bool) Value {
 	return Value{typ: "string", str: "OK"}
 }
 
-func (c *Cache) info(args []Value, isMaster bool) Value {
+func (c *Cache) info(args []Value, isMaster bool, conn *net.Conn) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -88,7 +92,7 @@ func (c *Cache) info(args []Value, isMaster bool) Value {
 	return Value{typ: "map", maps: Info}
 }
 
-func (c *Cache) ping(args []Value, isMaster bool) Value {
+func (c *Cache) ping(args []Value, isMaster bool, conn *net.Conn) Value {
 	if len(args) == 0 {
 		return Value{typ: "string", str: "PONG"}
 	}
@@ -98,7 +102,7 @@ func (c *Cache) ping(args []Value, isMaster bool) Value {
 var SETs = map[string]string{}
 var SERsMu = sync.RWMutex{}
 
-func (c *Cache) set(args []Value, isMaster bool) Value {
+func (c *Cache) set(args []Value, isMaster bool, conn *net.Conn) Value {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	key := args[0].str
@@ -133,12 +137,14 @@ func (c *Cache) set(args []Value, isMaster bool) Value {
 		}
 	}
 	fmt.Println("c.items", c.items)
-
+	for _, replica := range replicas {
+		(*replica).Write([]byte("*3\r\n$3\r\nSET\r\n$3\r\n" + key + "\r\n$" + fmt.Sprint(len(val)) + "\r\n" + val + "\r\n"))
+	}
 	return Value{typ: "string", str: "OK"}
 
 }
 
-func (c *Cache) get(args []Value, isMaster bool) Value {
+func (c *Cache) get(args []Value, isMaster bool, conn *net.Conn) Value {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	key := args[0].str
@@ -160,7 +166,7 @@ func (c *Cache) Delete(args string) {
 var HSETs = map[string]map[string]string{}
 var HSETsMu = sync.RWMutex{}
 
-func (c *Cache) hset(args []Value, isMaster bool) Value {
+func (c *Cache) hset(args []Value, isMaster bool, conn *net.Conn) Value {
 	if len(args) != 3 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -176,7 +182,7 @@ func (c *Cache) hset(args []Value, isMaster bool) Value {
 	return Value{typ: "string", str: "OK"}
 }
 
-func (c *Cache) hget(args []Value, isMaster bool) Value {
+func (c *Cache) hget(args []Value, isMaster bool, conn *net.Conn) Value {
 	if len(args) != 2 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -191,7 +197,7 @@ func (c *Cache) hget(args []Value, isMaster bool) Value {
 	return Value{typ: "bulk", str: val}
 }
 
-func (c *Cache) hgetall(args []Value, isMaster bool) Value {
+func (c *Cache) hgetall(args []Value, isMaster bool, conn *net.Conn) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}
@@ -210,7 +216,7 @@ func (c *Cache) hgetall(args []Value, isMaster bool) Value {
 	return Value{typ: "array", arr: values}
 }
 
-func (c *Cache) echo(args []Value, isMaster bool) Value {
+func (c *Cache) echo(args []Value, isMaster bool, conn *net.Conn) Value {
 	if len(args) != 1 {
 		return Value{typ: "error", err: "wrong number of arguments"}
 	}

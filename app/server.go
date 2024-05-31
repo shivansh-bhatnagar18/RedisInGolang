@@ -58,6 +58,7 @@ func main() {
 func handleconn(conn net.Conn, isMaster bool) {
 	reader := bufio.NewReader(conn)
 	c := NewCache()
+	// handshakeDone := false
 	for {
 		response, err := parseRESP(reader)
 		if err != nil {
@@ -69,7 +70,7 @@ func handleconn(conn net.Conn, isMaster bool) {
 			command = append(command, Value{typ: "bulk", str: v})
 		}
 		comm := Handlers[command[0].str]
-		resp := comm(c, command[1:], isMaster)
+		resp := comm(c, command[1:], isMaster, &conn)
 		writeResponse(conn, resp)
 	}
 }
