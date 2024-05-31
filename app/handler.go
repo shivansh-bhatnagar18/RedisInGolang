@@ -68,8 +68,6 @@ func (c *Cache) psync(args []Value, isMaster bool, conn *net.Conn) Value {
 	d, _ := hex.DecodeString(emptyRDB)
 	resp[1] = Value{typ: "file", file: string(d)}
 	return Value{typ: "multival", multival: resp}
-	// return Value{typ: "multistring", multistring: resp}
-	// return Value{typ: "string", str: "+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n"}
 }
 
 func (c *Cache) replconf(args []Value, isMaster bool, conn *net.Conn) Value {
